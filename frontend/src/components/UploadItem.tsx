@@ -1,22 +1,97 @@
-import { Download, ImageIcon, Trash2 } from "lucide-react";
+import { Download, FileSymlink, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import LoadingSpinner from "./LoadingSpinner";
+import { toast } from "sonner";
+import { convertImage, downloadFromUrl, getBaseFileName } from "@/lib/utils";
 
-export default function UploadItem() {
+type Props = {
+  file: File;
+  delete: () => void;
+  downloadUrl: string | null;
+};
+
+export default function UploadItem(props: Props) {
+  const [tempUrl, setTempUrl] = useState("");
+  const [converted, setConverted] = useState(!!props.downloadUrl);
+  const [isLoading, setIsLoading] = useState(false);
+  const [downloadUrl, setDownloadUrl] = useState(props.downloadUrl);
+  console.log(
+    "download url from props : ",
+    props.downloadUrl,
+    "local :",
+    downloadUrl
+  );
+  useEffect(() => {
+    if (tempUrl) {
+      URL.revokeObjectURL(tempUrl);
+    }
+    setTempUrl(URL.createObjectURL(props.file));
+  }, [props]);
+
+  const handleConvert = async () => {
+    setIsLoading(true);
+    const url = await convertImage(props.file);
+
+    if (!url) return toast.error("Error converting " + props.file.name);
+
+    setConverted(true);
+    setIsLoading(false);
+    setDownloadUrl(url);
+  };
+
+  const handleDownload = () => {
+    if (downloadUrl || props.downloadUrl) {
+      const fileName = getBaseFileName(props.file.name);
+      const url = downloadUrl || props.downloadUrl || "";
+      downloadFromUrl(url, fileName);
+    } else {
+      return toast.error("Can't download the image.");
+    }
+  };
+
   return (
-    <div className=" text-white relative w-[1150px] bg-[#1f1f1f] flex items-center h-[80px] px-[30px] border border-white/10 rounded-[4px] ">
-      {/* hello this is an upload item */}
-      <ImageIcon className="opacity-50 w-[45px] h-[45px]" />{" "}
-      <span className="text-white  opacity-90 text-[20px] font-mono ml-2">
-        Folder name
+    <div className=" text-white relative w-[1150px] bg-[#1f1f1f] flex items-center h-[80px] px-[20px] border border-white/10 rounded-[4px] ">
+      <img
+        alt=""
+        src={tempUrl}
+        className="w-[60px] object-cover object-center rounded-md   h-[60px]"
+      />
+      <span className="text-white  opacity-90 text-[18px] font-mono ml-4">
+        {props.file.name}
       </span>
-      <button className=" ml-auto flex gap-2 items-center hover:bg-white hover:scale-105 active:scale-100 transition-all bg-neutral-300  px-4 py-2 text-black  rounded-[4px] font-semibold mr-4">
-        {/* <LoadingSpinner className="text-black fill-neutral-200" /> */}
-        Download
-        <Download className="-mt-[2px]" />
+      {converted || props.downloadUrl ? (
+        <button
+          onClick={handleDownload}
+          className=" ml-auto flex gap-2 items-center hover:bg-white hover:scale-105 active:scale-100 transition-all bg-neutral-300  px-4 py-2 text-black  rounded-[4px] font-semibold mr-4"
+        >
+          Download
+          <Download className="-mt-[2px]" />
+        </button>
+      ) : (
+        <button
+          onClick={handleConvert}
+          className=" ml-auto flex gap-2 items-center  hover:bg-white hover:scale-105 active:scale-100 transition-all bg-neutral-300  px-4 py-2 text-black  rounded-[4px] font-semibold mr-4"
+        >
+          {isLoading && (
+            <LoadingSpinner className="text-black w-[100px] fill-neutral-200" />
+          )}
+          {!isLoading && (
+            <>
+              Convert
+              <FileSymlink className="-mt-[2px]" />
+            </>
+          )}
+        </button>
+      )}
+      <button
+        onClick={() => {
+          props.delete();
+          URL.revokeObjectURL(tempUrl);
+        }}
+        className="  flex gap-2 items-center active:bg-red-500 active:scale-95  hover:bg-red-600 transition-all   px-3 py-2 text-white  rounded-[4px] font-semibold "
+      >
+        <Trash2 className="-mt-[2px] " />
       </button>
-      <span className="h-[35px] group rounded-[2px] active:scale-95 hover:cursor-pointer transition-all hover:bg-red-500   w-[35px] flex items-center justify-center">
-        <Trash2 className="group-hover:p-[1px] transition-transform" />
-      </span>
     </div>
   );
 }

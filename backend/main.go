@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"log"
 	"net/http"
 	"os"
@@ -29,6 +31,11 @@ func main() {
 
 	r.MaxMultipartMemory = maxFileSize * 1024 * 1024
 
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "hello world",
+		})
+	})
 	r.POST("/upload", func(c *gin.Context) {
 
 		form, err := c.MultipartForm()
@@ -41,15 +48,22 @@ func main() {
 		for _, fileHeader := range files {
 
 			file, err := fileHeader.Open()
-			handleErr(err, c, "error opening fileHeader")
-
+			if err != nil {
+				c.JSON(500, gin.H{"error": "error opening fileHeader"})
+				return
+			}
 			srcImage, _, err := image.Decode(file)
-			handleErr(err, c, "error decoding the image")
+			if err != nil {
+				c.JSON(500, gin.H{"error": "error decoding the image"})
+				return
+			}
 
 			buffer := new(bytes.Buffer)
 			err = webpbin.Encode(buffer, srcImage)
-			handleErr(err, c, "error converting image to webp")
-
+			if err != nil {
+				c.JSON(500, gin.H{"error": "error converting image to webp"})
+				return
+			}
 			c.Header("Content-Disposition", "attachment; filename=converted.webp")
 			c.Data(http.StatusOK, "image/webp", buffer.Bytes())
 		}
@@ -70,11 +84,5 @@ func enableCORS() gin.HandlerFunc {
 		}
 
 		c.Next()
-	}
-}
-
-func handleErr(err error, c *gin.Context, msg string) {
-	if err != nil {
-		c.JSON(500, gin.H{"error": msg})
 	}
 }
